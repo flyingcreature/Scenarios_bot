@@ -1,18 +1,40 @@
+import os
+
 from dotenv import load_dotenv
-from os import getenv
 
-load_dotenv()
-
-TOKEN = getenv("token")
-
-GPT_URL = "http://localhost:1234/v1/chat/completions"  # Путь к серверу нейросети
 
 LOGS_PATH = "log_file.txt"  # Путь к файлу логов
 
-USER_DATA_PATH = "user_data.json"
+MAX_MODEL_TOKENS = 200  # Максимальный размер ответа
 
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"  # Название используемой нейросети
+DB_NAME = "db.sqlite"  # Название базы данных
 
-MAX_TASK_TOKENS = 150  # Максимальный размер запроса
+DB_TABLE_USERS_NAME = "users"  # Название таблицы пользователей в базе
 
-DB_TABLE = 'sqlite3.db'  # Таблица SQL
+ADMINS = [1645457137]  # Список user_id админов
+
+MAX_SESSIONS = 3  # Максимальное количество сессий на пользователя
+
+MAX_TOKENS_PER_SESSION = 1000  # Максимальное количество токенов на сессию
+
+MAX_USERS = 5  # Максимальное количество пользователей приложения
+
+load_dotenv()
+
+FOLDER_ID = os.getenv("folder_id")
+
+IAM_TOKEN = os.getenv("iam_token")
+
+BOT_TOKEN = os.getenv("token")
+
+URL_GPT = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"  # Cылка на gpt
+
+URL_TOKENS = "https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize"  # Cылка на токены gpt
+
+MODELURI_GPT = f"gpt://{FOLDER_ID}/yandexgpt-lite"  # Модель gpt
+
+MODELURI_TOKENS = f"gpt://{FOLDER_ID}/yandexgpt/latest"  # Токены для модели
+
+
+
+
