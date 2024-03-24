@@ -1,7 +1,15 @@
 import sqlite3
 
-from config import DB_NAME, DB_TABLE_USERS_NAME
+from config import DB_NAME, DB_TABLE_USERS_NAME, LOGS_PATH
 
+import logging
+
+logging.basicConfig(
+    filename=LOGS_PATH,
+    level=logging.DEBUG,
+    format="%(asctime)s %(message)s",
+    filemode="w",
+)
 
 def create_db():
     connection = sqlite3.connect(DB_NAME)
@@ -22,6 +30,7 @@ def execute_query(query: str, data: tuple | None = None, db_name: str = DB_NAME)
 
     except sqlite3.Error as e:
         print("Ошибка при выполнении запроса: ", e)
+        logging.error("Ошибка при выполнении запроса: ", e)
 
     else:
         result = cursor.fetchall()
@@ -44,6 +53,7 @@ def create_table():
     )
     execute_query(sql_query)
     print("Таблица успешно создана")
+    logging.info("Таблица успешно создана")
 
 
 def add_new_user(user_id: int):
@@ -56,8 +66,10 @@ def add_new_user(user_id: int):
 
         execute_query(sql_query, (user_id,))
         print("Пользователь успешно добавлен")
+        logging.info("Пользователь успешно добавлен")
     else:
         print("Пользователь уже существует!")
+        logging.info("Пользователь уже существует!")
 
 
 def is_user_in_db(user_id: int) -> bool:
@@ -77,6 +89,7 @@ def update_row(user_id: int, column_name: str, new_value: str | int | None):
 
     else:
         print("Пользователь не найден в базе")
+        logging.info("Пользователь не найден в базе")
 
 
 def get_user_data(user_id: int):
@@ -120,6 +133,7 @@ def delete_user(user_id: int):
 
         execute_query(sql_query, (user_id,))
         print("Пользователь удалён")
-
+        logging.info("Пользователь удалён")
     else:
         print("Пользователь не найден в базе")
+        logging.info("Пользователь не найден в базе")

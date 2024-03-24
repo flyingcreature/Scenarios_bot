@@ -460,8 +460,23 @@ def send_all_story(message: Message):
     )
 
 
-@bot.message_handler(commands=["all_tokens"])  # Функция для подсчёта токенов
-def send_tokens(message: Message):
+@bot.message_handler(commands=["kill_my_session"])
+def kill_session(message: Message):
+    user_id = message.from_user.id
+    if user_id in ADMINS:
+        try:
+            db.update_row(user_id, "sessions", 1)
+
+        except Exception as e:
+            print(f"Произошла ошибка {e}, сессии не обновлены")
+            logging.error(f"Произошла ошибка {e}, сессии не обновлены")
+    else:
+        print(f"{user_id} попытался обновить сессии")
+        logging.info(f"{user_id} попытался обновить сессии")
+
+
+@bot.message_handler(commands=["all_tokens"])
+def send_tokens(message: Message):  # Функция для подсчёта токенов
     user_id = message.from_user.id
     user_tokens = db.get_user_data(user_id)["tokens"]
 
@@ -473,17 +488,22 @@ def send_tokens(message: Message):
 
 @bot.message_handler(commands=['debug'])
 def send_logs(message):
-    try:
-        with open(LOGS_PATH, "rb") as f:
-            bot.send_document(
-                message.chat.id,
-                f
+    user_id = message.from_user.id
+    if user_id in ADMINS:
+        try:
+            with open(LOGS_PATH, "rb") as f:
+                bot.send_document(
+                    message.chat.id,
+                    f
+                )
+        except telebot.apihelper.ApiTelegramException:
+            bot.send_message(
+                chat_id=message.chat.id,
+                text="Логов нет!"
             )
-    except telebot.apihelper.ApiTelegramException:
-        bot.send_message(
-            chat_id=message.chat.id,
-            text="Логов нет!"
-        )
+    else:
+        print(f"{user_id} захотел посмотреть логи")
+        logging.info(f"{user_id} захотел посмотреть логи")
 
 
 @bot.message_handler(commands=['help'])
@@ -528,23 +548,6 @@ def say_bye(message: Message):
         chat_id=message.chat.id,
         text="Пока, заходи ещё!"
     )
-
-
-@bot.message_handler(commands=['debug'])
-def send_logs(message):
-    user_id = message.from_user.id
-    if user_id in ADMINS:
-        try:
-            with open(LOGS_PATH, "rb") as f:
-                bot.send_document(
-                    message.chat.id,
-                    f
-                )
-        except telebot.apihelper.ApiTelegramException:
-            bot.send_message(
-                chat_id=message.chat.id,
-                text="Логов нет!"
-            )
 
 
 @bot.message_handler(func=lambda message: True, content_types=['audio', 'photo', 'voice', 'video', 'document',
