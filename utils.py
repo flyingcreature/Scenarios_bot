@@ -1,6 +1,12 @@
 import json
+import logging
+import time
 
 from telebot.types import ReplyKeyboardMarkup
+
+from config import IAM_TOKEN_ENDPOINT, IAM_TOKEN_PATH
+import requests
+
 
 
 def load_data(path: str) -> dict:
@@ -34,3 +40,44 @@ def create_keyboard(buttons: list[str]) -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(*buttons)
     return keyboard
+
+
+def create_new_iam_token():
+    """Создание нового токена"""
+    headers = {"Metadata-Flavor": "Google"}
+
+    try:
+        response = requests.get(IAM_TOKEN_ENDPOINT, headers=headers)
+        if response.status_code == 200:
+            token_data = response.json()
+            token_data["expires_at"] = time.time() + token_data['expires_in']
+
+            with open(IAM_TOKEN_PATH, "W") as token_file:
+                json.dump(token_data, token_file)
+
+            logging.info("Iam токен создан")
+            return response.json()["access_token"]
+
+        else:
+            print(f"Проблемы с запросом: {response.status_code} токен не был создан")
+            logging.error(f"Проблемы с запросом: {response.status_code} токен не был создан")
+
+    except Exception as e:
+        print(f"Произошла ошибка {e}, токен не был создан")
+        logging.error(f"Произошла ошибка {e}, токен не был создан")
+
+
+def get_iam_token():
+    try:
+        with open(IAM_TOKEN_PATH, "r") as file:
+            data = json.load(file)
+            expiration = data["expires_at"]
+
+        if expiration < time.time():
+            return create_new_iam_token()
+        else:
+            return data["access_token"]
+
+    except:
+        return create_new_iam_token()
+

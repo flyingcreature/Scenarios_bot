@@ -74,7 +74,6 @@ def update_row(user_id: int, column_name: str, new_value: str | int | None):
         )
 
         execute_query(sql_query, (new_value, user_id))
-        print("Значение обновлено")
 
     else:
         print("Пользователь не найден в базе")

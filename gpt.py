@@ -2,7 +2,8 @@ import logging
 
 import requests
 
-from config import LOGS_PATH, MAX_MODEL_TOKENS, IAM_TOKEN, FOLDER_ID, URL_GPT, URL_TOKENS, MODELURI_GPT, MODELURI_TOKENS
+from config import LOGS_PATH, MAX_MODEL_TOKENS, FOLDER_ID, URL_GPT, URL_TOKENS, MODELURI_GPT, MODELURI_TOKENS
+from utils import get_iam_token
 
 logging.basicConfig(
     filename=LOGS_PATH,
@@ -14,8 +15,10 @@ logging.basicConfig(
 
 # Функция для подсчета токенов в истории сообщений. На вход обязательно принимает список словарей, а не строку!
 def count_tokens_in_dialogue(messages):
+    iam_token = get_iam_token()
+
     headers = {
-        'Authorization': f'Bearer {IAM_TOKEN}',
+        'Authorization': f'Bearer {iam_token}',
         'Content-Type': 'application/json'
     }
     data = {
@@ -45,6 +48,8 @@ def ask_gpt_helper(messages) -> str:
     Отправляет запрос к модели GPT с задачей и предыдущим ответом
     для получения ответа или следующего шага
     """
+    iam_token = get_iam_token()
+
     data = {
         "modelUri": MODELURI_GPT,
         "completionOptions": {
@@ -62,7 +67,7 @@ def ask_gpt_helper(messages) -> str:
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {IAM_TOKEN}",
+        "Authorization": f"Bearer {iam_token}",
         "x-folder-id": f"{FOLDER_ID}",
     }
 
@@ -73,7 +78,6 @@ def ask_gpt_helper(messages) -> str:
     )
     if response.status_code == 200:
         result = response.json()["result"]["alternatives"][0]["message"]["text"]
-        print("Ответ получен!")
         logging.debug(f"Получен результат: {result}")
         return result
     else:

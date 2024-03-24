@@ -2,7 +2,6 @@ import os
 
 from dotenv import load_dotenv
 
-
 LOGS_PATH = "log_file.txt"  # Путь к файлу логов
 
 MAX_MODEL_TOKENS = 200  # Максимальный размер ответа
@@ -23,7 +22,7 @@ load_dotenv()
 
 FOLDER_ID = os.getenv("folder_id")
 
-IAM_TOKEN = os.getenv("iam_token")
+# IAM_TOKEN = os.getenv("iam_token")  используем, этот вариант, если автоматически не получаем токен на сервере
 
 BOT_TOKEN = os.getenv("token")
 
@@ -35,6 +34,6 @@ MODELURI_GPT = f"gpt://{FOLDER_ID}/yandexgpt-lite"  # Модель gpt
 
 MODELURI_TOKENS = f"gpt://{FOLDER_ID}/yandexgpt/latest"  # Токены для модели
 
+IAM_TOKEN_ENDPOINT = "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"  # Адресс токена
 
-
-
+IAM_TOKEN_PATH = "iam_token.json"  # Путь к json файлу с ключом
