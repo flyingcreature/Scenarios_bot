@@ -561,4 +561,4 @@ def send_echo(message: Message):
 
 
 logging.info("Бот запущен")
-bot.infinity_polling(none_stop=True)
+bot.infinity_polling(timeout=60, long_polling_timeout=5)
