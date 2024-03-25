@@ -8,7 +8,6 @@ from config import IAM_TOKEN_ENDPOINT, IAM_TOKEN_PATH
 import requests
 
 
-
 def load_data(path: str) -> dict:
     """
     Загружает данные из json по переданному пути и возвращает

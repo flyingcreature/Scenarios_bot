@@ -1,8 +1,11 @@
+import json
+
 import logging
 
 import requests
 
-from config import LOGS_PATH, MAX_MODEL_TOKENS, FOLDER_ID, URL_GPT, URL_TOKENS, MODELURI_GPT, MODELURI_TOKENS
+from config import (LOGS_PATH, MAX_MODEL_TOKENS, FOLDER_ID, URL_GPT, URL_TOKENS, MODELURI_GPT, MODELURI_TOKENS,
+                    TOKENS_DATA_PATH)
 from utils import get_iam_token
 
 logging.basicConfig(
@@ -14,8 +17,10 @@ logging.basicConfig(
 
 
 # Функция для подсчета токенов в истории сообщений. На вход обязательно принимает список словарей, а не строку!
-def count_tokens_in_dialogue(messages):
-    iam_token = get_iam_token()
+def count_tokens_in_dialogue(messages: list) -> int:
+    iam_token = "t1.9euelZqLzpSRyI6bk8uWnJSNy4qRlu3rnpWam4qWkYzGzI7OxpCWls-clZ7l8_cYYHpP-e93ZmJV_t3z91gOeE_573dmYlX-zef1656Vmp3MnpLGzsacnJPNjs-bnZ6Z7_zF656Vmp3MnpLGzsacnJPNjs-bnZ6ZveuelZqQnIzMls3OmMmQyZKPjZyTirXehpzRnJCSj4qLmtGLmdKckJKPioua0pKai56bnoue0oye.HUCcHusDbDtqG3HQOoehu0Ajdyj3sMsfLFaLfVJ-cx79gqTKJxwoViMvogvlFrCSHBJUkIcZyZK2tsEme_2NBQ"
+
+        #get_iam_token()
 
     headers = {
         'Authorization': f'Bearer {iam_token}',
@@ -24,8 +29,16 @@ def count_tokens_in_dialogue(messages):
     data = {
         "modelUri": MODELURI_TOKENS,
         "maxTokens": MAX_MODEL_TOKENS,
-        "text": messages
+        "messages": []
     }
+
+    for row in messages:
+        data["messages"].append(
+            {
+                "role": row["role"],
+                "text": row["content"]
+            }
+        )
 
     return len(
         requests.post(
@@ -43,12 +56,39 @@ def get_system_content(genre, hero, setting):  # Собирает строку �
     )
 
 
+def increment_tokens_by_request(messages: list[dict]):
+    """
+    Добавляет количество токенов потраченных на запрос и ответ
+    к общей сумме в json файле
+    """
+    try:
+        with open(TOKENS_DATA_PATH, "r") as token_file:
+            tokens_count = json.load(token_file)["tokens_count"]
+
+    except FileNotFoundError:
+        tokens_count = 2000
+
+    current_tokens_used = count_tokens_in_dialogue(messages)
+    tokens_count += current_tokens_used
+
+    with open(TOKENS_DATA_PATH, "w") as token_file:
+        json.dump({"tokens_count": tokens_count}, token_file)
+
+
 def ask_gpt_helper(messages) -> str:
     """
     Отправляет запрос к модели GPT с задачей и предыдущим ответом
     для получения ответа или следующего шага
     """
-    iam_token = get_iam_token()
+    iam_token ="t1.9euelZqLzpSRyI6bk8uWnJSNy4qRlu3rnpWam4qWkYzGzI7OxpCWls-clZ7l8_cYYHpP-e93ZmJV_t3z91gOeE_573dmYlX-zef1656Vmp3MnpLGzsacnJPNjs-bnZ6Z7_zF656Vmp3MnpLGzsacnJPNjs-bnZ6ZveuelZqQnIzMls3OmMmQyZKPjZyTirXehpzRnJCSj4qLmtGLmdKckJKPioua0pKai56bnoue0oye.HUCcHusDbDtqG3HQOoehu0Ajdyj3sMsfLFaLfVJ-cx79gqTKJxwoViMvogvlFrCSHBJUkIcZyZK2tsEme_2NBQ"
+
+        #get_iam_token()
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {iam_token}",
+        "x-folder-id": f"{FOLDER_ID}",
+    }
 
     data = {
         "modelUri": MODELURI_GPT,
@@ -57,29 +97,33 @@ def ask_gpt_helper(messages) -> str:
             "temperature": 0.6,
             "maxTokens": MAX_MODEL_TOKENS
         },
-        "messages": [
+        "messages": []
+    }
+
+    for row in messages:
+        data["messages"].append(
             {
-                "role": "user",
-                "text": messages
+                "role": row["role"],
+                "text": row["content"]
             }
-        ]
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {iam_token}",
-        "x-folder-id": f"{FOLDER_ID}",
-    }
-
-    response = requests.post(
-        url=URL_GPT,
-        headers=headers,
-        json=data
-    )
-    if response.status_code == 200:
-        result = response.json()["result"]["alternatives"][0]["message"]["text"]
-        logging.debug(f"Получен результат: {result}")
-        return result
+        )
+    try:
+        response = requests.post(
+            url=URL_GPT,
+            headers=headers,
+            json=data
+        )
+    except Exception as e:
+        print(f"Произошла непредвиденная ошибка: {e}.")
+        logging.error(f"Произошла непредвиденная ошибка: {e}.")
     else:
-        print("Не удалось получить ответ :(")
-        logging.error(f"Получена ошибка: {response.json()}")
+        if response.status_code != 200:
+            print("Не удалось получить ответ :(")
+            logging.error(f"Получена ошибка: {response.json()}")
+
+        else:
+            result = response.json()["result"]["alternatives"][0]["message"]["text"]
+            messages.append({"role": "assistant", "content": result})
+            increment_tokens_by_request(messages)
+            return result
+

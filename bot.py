@@ -5,7 +5,8 @@ import telebot
 from telebot.types import Message, ReplyKeyboardRemove
 
 import db
-from config import ADMINS, LOGS_PATH, MAX_TOKENS_PER_SESSION, MAX_SESSIONS, MAX_USERS, MAX_MODEL_TOKENS, BOT_TOKEN
+from config import (ADMINS, LOGS_PATH, MAX_TOKENS_PER_SESSION, MAX_SESSIONS, MAX_USERS, MAX_MODEL_TOKENS, BOT_TOKEN,
+                    TOKENS_DATA_PATH)
 from gpt import ask_gpt_helper, count_tokens_in_dialogue, get_system_content
 from utils import create_keyboard
 
@@ -36,11 +37,18 @@ hero_list = [
     "Анна Ахматова"
 ]
 
-setting_list = [
-    "В горах",
-    "В космосе",
-    "В ГТА5",
-]
+setting_list = {
+    "В горах": "События будут разворачиваться на фоне красивых природных пейзажей, "
+               "а герои будут сталкиваться с опасностями и преодолевать трудности, связанными с горной местностью🏔️.",
+    "В космосе": "События развиваются за пределами Земли. Герои могут сталкиваться с различными опасностями, "
+                 "связанные с космическими путешествиями🪐.",
+    "В ГТА5": "События разворачиваются в открытом мире игры, "
+              "который включает в себя три крупных города и множество небольших населенных пунктов. "
+              "Главные герои - трое преступников, которые пытаются наладить свою жизнь, "
+              "но постоянно попадают в новые неприятности. "
+              "В игре присутствует огромный выбор различных миссий, заданий и развлечений, "
+              "а также возможность свободно исследовать мир и взаимодействовать с его обитателями🤩."
+}
 
 
 @bot.message_handler(commands=["start"])
@@ -149,14 +157,14 @@ def hero_selection(message: Message):  # Всё то же самое тольк�
         )
         text = (
             "В какой сеттинг ты хочешь поместить героя:\n\n"
-            "Горная вершина: действие происходит на заснеженной горной вершине🏔️.\n"
-            "Космос: действие происходит в далёкой далекой галактике🪐...\n"
-            "ГТА5: действие происходит в мире ГТА5🤩."
         )
+        for setting in setting_list:
+            text += f"{setting}: {setting_list[setting]}\n\n"
+
         bot.send_message(
             chat_id=user_id,
             text=text,
-            reply_markup=create_keyboard(setting_list),
+            reply_markup=create_keyboard(list(setting_list.keys())),
         )
         bot.register_next_step_handler(message, setting_selection)
 
@@ -164,7 +172,7 @@ def hero_selection(message: Message):  # Всё то же самое тольк�
         bot.send_message(
             chat_id=user_id,
             text="Пожалуйста, выбери сеттинг из предложенных:",
-            reply_markup=create_keyboard(setting_list),
+            reply_markup=create_keyboard(list(setting_list.keys())),
         )
         bot.register_next_step_handler(message, hero_selection)
 
@@ -174,7 +182,7 @@ def setting_selection(message: Message):  # Всё то же самое толь
     user_name = message.from_user.first_name
     user_choice = message.text
     if user_choice in setting_list:
-        db.update_row(user_id, "setting", user_choice)
+        db.update_row(user_id, "setting", setting_list[user_choice])
         bot.send_message(
             chat_id=user_id,
             text=(
@@ -192,7 +200,7 @@ def setting_selection(message: Message):  # Всё то же самое толь
         bot.send_message(
             chat_id=user_id,
             text="Пожалуйста, выбери сеттинг из предложенных:",
-            reply_markup=create_keyboard(setting_list),
+            reply_markup=create_keyboard(list(setting_list.keys())),
         )
         bot.register_next_step_handler(message, setting_selection)
 
@@ -473,6 +481,26 @@ def kill_session(message: Message):
     else:
         print(f"{user_id} попытался обновить сессии")
         logging.info(f"{user_id} попытался обновить сессии")
+
+
+@bot.message_handler(commands=["how_many_tokens"])
+def how_many_tokens(message: Message):
+    user_id = message.from_user.id
+    if user_id in ADMINS:
+        try:
+            with open(TOKENS_DATA_PATH, "r") as f:
+                tokens_count = json.load(f)["tokens_count"]
+
+            bot.send_message(
+                chat_id=user_id,
+                text=f"За всё время израсходовано:{tokens_count} токенов."
+            )
+        except Exception as e:
+            print(f"Произошла ошибка {e}, токены не выведены.")
+            logging.error(f"Произошла ошибка {e}, токены не выведены.")
+    else:
+        print(f"{user_id} попытался узнать сколько токенов использовано.")
+        logging.info(f"{user_id} попытался сколько токенов использовано.")
 
 
 @bot.message_handler(commands=["all_tokens"])

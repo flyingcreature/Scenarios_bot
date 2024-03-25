@@ -37,3 +37,5 @@ MODELURI_TOKENS = f"gpt://{FOLDER_ID}/yandexgpt/latest"  # Токены для �
 IAM_TOKEN_ENDPOINT = "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"  # Адресс токена
 
 IAM_TOKEN_PATH = "token_data.json"  # Путь к json файлу с ключом
+
+TOKENS_DATA_PATH = "tokens_count.json"  # Файл json с кол-ом токенов потраченного в боте
