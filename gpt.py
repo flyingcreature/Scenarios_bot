@@ -4,8 +4,7 @@ import logging
 
 import requests
 
-from config import (LOGS_PATH, MAX_MODEL_TOKENS, FOLDER_ID, URL_GPT, URL_TOKENS, MODELURI_GPT, MODELURI_TOKENS,
-                    TOKENS_DATA_PATH)
+from config import (LOGS_PATH, MAX_MODEL_TOKENS, FOLDER_ID, URL_GPT, URL_TOKENS, TOKENS_DATA_PATH, GPT_MODEL)
 from utils import get_iam_token
 
 logging.basicConfig(
@@ -18,16 +17,13 @@ logging.basicConfig(
 
 # Функция для подсчета токенов в истории сообщений. На вход обязательно принимает список словарей, а не строку!
 def count_tokens_in_dialogue(messages: list) -> int:
-    iam_token = "t1.9euelZqLzpSRyI6bk8uWnJSNy4qRlu3rnpWam4qWkYzGzI7OxpCWls-clZ7l8_cYYHpP-e93ZmJV_t3z91gOeE_573dmYlX-zef1656Vmp3MnpLGzsacnJPNjs-bnZ6Z7_zF656Vmp3MnpLGzsacnJPNjs-bnZ6ZveuelZqQnIzMls3OmMmQyZKPjZyTirXehpzRnJCSj4qLmtGLmdKckJKPioua0pKai56bnoue0oye.HUCcHusDbDtqG3HQOoehu0Ajdyj3sMsfLFaLfVJ-cx79gqTKJxwoViMvogvlFrCSHBJUkIcZyZK2tsEme_2NBQ"
-
-        #get_iam_token()
-
+    iam_token = get_iam_token()
     headers = {
         'Authorization': f'Bearer {iam_token}',
         'Content-Type': 'application/json'
     }
     data = {
-        "modelUri": MODELURI_TOKENS,
+        "modelUri": f"gpt://{FOLDER_ID}/{GPT_MODEL}/latest",
         "maxTokens": MAX_MODEL_TOKENS,
         "messages": []
     }
@@ -40,19 +36,20 @@ def count_tokens_in_dialogue(messages: list) -> int:
             }
         )
 
-    return len(
-        requests.post(
-            url=URL_TOKENS,
-            json=data,
-            headers=headers
-        ).json()["tokens"]
+    result = requests.post(
+        url=URL_TOKENS,
+        json=data,
+        headers=headers
     )
+
+    return len(result.json()["tokens"])
 
 
 def get_system_content(genre, hero, setting):  # Собирает строку для system_content
     return (
         f"Придумай захватывающую историю в стиле {genre}. Главным героем будет {hero}."
-        f" Происходить всё это будет {setting}. "
+        f"{setting}. Историю вы пишете по очереди. Начинает человек, а ты продолжаешь."
+        f"Не пиши никакого пояснительного текста в начале, а просто логично продолжай историю."
     )
 
 
@@ -80,9 +77,7 @@ def ask_gpt_helper(messages) -> str:
     Отправляет запрос к модели GPT с задачей и предыдущим ответом
     для получения ответа или следующего шага
     """
-    iam_token ="t1.9euelZqLzpSRyI6bk8uWnJSNy4qRlu3rnpWam4qWkYzGzI7OxpCWls-clZ7l8_cYYHpP-e93ZmJV_t3z91gOeE_573dmYlX-zef1656Vmp3MnpLGzsacnJPNjs-bnZ6Z7_zF656Vmp3MnpLGzsacnJPNjs-bnZ6ZveuelZqQnIzMls3OmMmQyZKPjZyTirXehpzRnJCSj4qLmtGLmdKckJKPioua0pKai56bnoue0oye.HUCcHusDbDtqG3HQOoehu0Ajdyj3sMsfLFaLfVJ-cx79gqTKJxwoViMvogvlFrCSHBJUkIcZyZK2tsEme_2NBQ"
-
-        #get_iam_token()
+    iam_token = get_iam_token()
 
     headers = {
         "Content-Type": "application/json",
@@ -91,7 +86,7 @@ def ask_gpt_helper(messages) -> str:
     }
 
     data = {
-        "modelUri": MODELURI_GPT,
+        "modelUri": f"gpt://{FOLDER_ID}/{GPT_MODEL}/latest",
         "completionOptions": {
             "stream": False,
             "temperature": 0.6,

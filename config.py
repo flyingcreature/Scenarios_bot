@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 LOGS_PATH = "log_file.txt"  # Путь к файлу логов
 
-MAX_MODEL_TOKENS = 200  # Максимальный размер ответа
+MAX_MODEL_TOKENS = 50  # Максимальный размер ответа
 
 DB_NAME = "db.sqlite"  # Название базы данных
 
@@ -26,13 +26,11 @@ FOLDER_ID = os.getenv("folder_id")
 
 BOT_TOKEN = os.getenv("token")
 
+GPT_MODEL = "yandexgpt"  # Модель gpt
+
 URL_GPT = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"  # Cылка на gpt
 
-URL_TOKENS = "https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize"  # Cылка на токены gpt
-
-MODELURI_GPT = f"gpt://{FOLDER_ID}/yandexgpt-lite"  # Модель gpt
-
-MODELURI_TOKENS = f"gpt://{FOLDER_ID}/yandexgpt/latest"  # Токены для модели
+URL_TOKENS = "https://llm.api.cloud.yandex.net/foundationModels/v1/tokenizeCompletion"  # Cылка на токены gpt
 
 IAM_TOKEN_ENDPOINT = "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"  # Адресс токена
 

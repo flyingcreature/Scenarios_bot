@@ -37,6 +37,11 @@ hero_list = [
     "Анна Ахматова"
 ]
 
+end_list = [
+    "Сгенерировать историю",
+    "Показать всю историю"
+]
+
 setting_list = {
     "В горах": "События будут разворачиваться на фоне красивых природных пейзажей, "
                "а герои будут сталкиваться с опасностями и преодолевать трудности, связанными с горной местностью🏔️.",
@@ -232,20 +237,27 @@ def additionally_selection(message: Message):
         chat_id=user_id,
         text=(
             f"Принято, {user_name}! Дополнительное условие: '{selection}'. "
-            f"А теперь жми на кнопочку  'Сгенерировать  историю'"
+            f"А теперь жми на кнопочку  'Добавить в историю'"
         ),
         reply_markup=create_keyboard([
-            "Сгенерировать  историю"
+            "Добавить в историю"
         ]
         )
     )
-    bot.register_next_step_handler(message, create_a_story)
+
+    user_data = db.get_user_data(int(user_id))
+    messages = user_data["messages"]
+
+    if messages is None:
+        bot.register_next_step_handler(message, create_a_story)
+    else:
+        bot.register_next_step_handler(message, continue_explaining)
 
 
 def filter_create_a_story(message: Message) -> bool:
     user_id = message.from_user.id
     if db.is_user_in_db(user_id):
-        return message.text == "Сгенерировать  историю"
+        return message.text == "Сгенерировать историю"
 
 
 # Блок решения задач
@@ -258,24 +270,21 @@ def create_a_story(message: Message):
     setting = db.get_user_data(user_id)["setting"]  # Получаем выбранный сеттинг из БД
     additionally = db.get_user_data(user_id)["additionally"]  # Получаем доп комментарии из БД
 
+    db.update_row(user_id, "messages", None)  # При создании новой истории, обновляем БД
+
     system_content = get_system_content(genre, hero, setting)  # Формируем system_content
-    user_content = additionally  # Формируем user_content
 
-    if user_tokens <= 200:  # Если токенов мало, то заканчиваем историю.
-        bot.send_message(
-            chat_id=user_id,
-            text="У тебя осталось мало токенов. Я завершу историю🎬."
+    messages = [
+        {"role": "system", "content": system_content}
+    ]  # Приводим контент к стандартизированному виду - списку из словарей сообщений
+
+    if additionally is not None:  # Если пользователь ввел дополнительную информацию.
+        content = (
+            f"Также пользователь попросил учесть "
+            f"следующую дополнительную информацию: {additionally}"
         )
-        system_content = (
-            "Напиши завершение истории c неожиданной развязкой. "
-            "Не пиши никакой пояснительный текст от себя"
-        )
+        messages.append({"role": "system", "content": content})
 
-    if additionally is None:
-        user_content = ""
-
-    messages = system_content + user_content + ". "
-    # Приводим контент к стандартизированному виду - списку из словарей сообщений
     tokens_messages = count_tokens_in_dialogue(messages)  # Посчитаем вес запроса в токенах
 
     if tokens_messages + MAX_MODEL_TOKENS <= user_tokens:  # Проверим что вес запроса + максимального ответа меньше, чем
@@ -285,9 +294,9 @@ def create_a_story(message: Message):
             text="Генерирую..."
         )
         answer = ask_gpt_helper(messages)  # Получаем ответ от GPT
-        messages += answer  # Добавляем в наш словарик ответ GPT
+        messages.append({"role": "assistant", "content": answer})  # Добавляем в наш словарик ответ GPT
 
-        user_tokens -= count_tokens_in_dialogue(answer)  # Получаем новое значение
+        user_tokens -= count_tokens_in_dialogue([{"role": "assistant", "content": answer}])  # Получаем новое значение
         # оставшихся токенов пользователя - вычитаем стоимость запроса и ответа
         db.update_row(user_id, "tokens", user_tokens)  # Записываем новое значение в БД
 
@@ -328,11 +337,9 @@ def create_a_story(message: Message):
                 text=answer,
                 reply_markup=create_keyboard(
                     [
-                        "Сгенерировать историю",
                         "Продолжить историю",
-                        "Изменить жанр/героя/сеттинг",
                         "Добавить условие",
-                        "Показать всю историю"
+                        "Завершить историю"
                     ]
                 ),
             )
@@ -340,12 +347,20 @@ def create_a_story(message: Message):
     else:  # Если у пользователя не хватает токенов на запрос + ответ
         bot.send_message(
             chat_id=user_id,
-            text="Токенов на ответ может не хватить:( Начни новую сессию",
-            reply_markup=create_keyboard(["Начать новую сессию"])
+            text="Токенов на ответ может не хватить:( Начни новую сессию, или заверши историю.",
+            reply_markup=create_keyboard(
+                [
+                    "Начать новую сессию",
+                    "Завершить историю",
+                    "Показать всю историю"
+                ]
+            )
         )
         logging.info(
             f"Отправлено: {message.text}\nПолучено: Предупреждение о нехватке токенов"
         )
+        if message.text == "Завершить историю":
+            bot.register_next_step_handler(message, send_end_story)
 
 
 def filter_continue_explaining(message: Message) -> bool:
@@ -367,6 +382,9 @@ def continue_explaining(message):
             reply_markup=create_keyboard(["Начать историю!"]),
         )
         return
+    user_content = "Продолжи историю."  # Формируем user_content
+
+    messages.append({"role": "user", "content": user_content})  # Добавляем запрос от пользователя
 
     user_tokens = db.get_user_data(user_id)["tokens"]  # Получаем актуальное количество токенов пользователя
     tokens_messages = count_tokens_in_dialogue(messages)  # Считаем вес запроса в токенах из всех предыдущих сообщений
@@ -377,9 +395,9 @@ def continue_explaining(message):
             text="Формулирую продолжение..."
         )
         answer = ask_gpt_helper(messages)  # Получаем продолжение от gpt
-        messages += answer  # Добавляем очередной ответ в список сообщений
+        messages.append({"role": "assistant", "content": answer})  # Добавляем очередной ответ в список сообщений
 
-        user_tokens -= count_tokens_in_dialogue(answer)  # Вычитаем токены
+        user_tokens -= count_tokens_in_dialogue([{"role": "assistant", "content": answer}])  # Вычитаем токены
         db.update_row(user_id, "tokens", user_tokens)  # Сохраняем новое значение токенов в БД
 
         json_string_messages = json.dumps(messages, ensure_ascii=False)  # Преобразуем список сообщений в строку для БД
@@ -413,11 +431,9 @@ def continue_explaining(message):
                 text=answer,
                 reply_markup=create_keyboard(
                     [
-                        "Сгенерировать историю",
                         "Продолжить историю",
-                        "Изменить жанр/героя/сеттинг",
                         "Добавить условие",
-                        "Показать всю историю"
+                        "Завершить историю"
                     ]
                 ),
             )
@@ -426,11 +442,97 @@ def continue_explaining(message):
         bot.send_message(
             chat_id=user_id,
             text="Токенов на ответ может не хватить:( Пожалуйста, попробуй  создать новую историю.",
-            reply_markup=create_keyboard(["Сгенерировать историю", "Показать всю историю"]),
+            reply_markup=create_keyboard(["Сгенерировать историю", "Завершить историю"]),
             # Предлагаем задать новый вопрос в рамках сессии
         )
         logging.info(
             f"Отправлено: {message.text}\nПолучено: Предупреждение о нехватке токенов"
+        )
+
+        if message.text == "Завершить историю":
+            bot.register_next_step_handler(message, send_end_story)
+
+
+def filter_end_story(message: Message) -> bool:
+    user_id = message.from_user.id
+    if db.is_user_in_db(user_id):
+        return message.text == "Завершить историю"
+
+
+@bot.message_handler(func=filter_end_story)
+def send_end_story(message: Message):
+    user_id = message.from_user.id
+    json_string_messages = db.get_user_data(user_id)["messages"]  # Достаем из базы все предыдущие сообщения
+    # в виде json-строки
+    messages = json.loads(json_string_messages)  # Преобразуем json-строку в нужный нам формат списка словарей
+    if not messages:  # Если попытались закончить, но запроса еще не было
+        bot.send_message(
+            chat_id=user_id,
+            text="Ты ещё не создавал историй, сделай это кнопкой ниже.",
+            reply_markup=create_keyboard(["Начать историю!"]),
+        )
+        return
+
+    user_content = (
+        "Напиши завершение истории c неожиданной развязкой. "
+        "Не пиши никакой пояснительный текст от себя."
+    )  # Формируем user_content
+
+    messages.append({"role": "user", "content": user_content})  # Добавляем запрос пользовтаеля
+
+    user_tokens = db.get_user_data(user_id)["tokens"]  # Получаем актуальное количество токенов пользователя
+    tokens_messages = count_tokens_in_dialogue(messages)  # Считаем вес запроса в токенах из всех предыдущих сообщений
+
+    required_tokens = (tokens_messages + MAX_MODEL_TOKENS) - user_tokens
+    end_tokens = user_tokens + required_tokens
+    db.update_row(user_id, "tokens", end_tokens)
+
+    bot.send_message(
+        chat_id=user_id,
+        text="Формулирую концовку..."
+    )
+    answer = ask_gpt_helper(messages)  # Получаем концовку от gpt
+    messages.append({"role": "assistant", "content": answer})  # Добавляем очередной ответ в список сообщений
+
+    user_tokens -= count_tokens_in_dialogue([{"role": "assistant", "content": answer}])  # Вычитаем токены
+    db.update_row(user_id, "tokens", user_tokens)  # Сохраняем новое значение токенов в БД
+
+    json_string_messages = json.dumps(messages, ensure_ascii=False)  # Преобразуем список сообщений в строку для БД
+    db.update_row(user_id, "messages", json_string_messages)  # Сохраняем строку сообщений в БД
+
+    if answer is None:
+        bot.send_message(
+            chat_id=user_id,
+            text="Не могу получить ответ от GPT :(",
+            reply_markup=create_keyboard(
+                [
+                    "Сгенерировать историю",
+                    "Изменить жанр/героя/сеттинг",
+                ]
+            ),
+        )
+    elif answer == "":
+        bot.send_message(
+            chat_id=user_id,
+            text="История окончена ^-^",
+            reply_markup=create_keyboard(
+                [
+                    "Сгенерировать историю",
+                    "Изменить жанр/героя/сеттинг",
+                ]
+            ),
+        )
+    else:
+        bot.send_message(
+            chat_id=user_id,
+            text=answer,
+            reply_markup=create_keyboard(
+                [
+                    "Сгенерировать историю",
+                    "Показать всю историю",
+
+                ]
+            ),
         )
 
 
@@ -446,7 +548,7 @@ def send_all_story(message: Message):
     json_string_messages = db.get_user_data(user_id)["messages"]  # Достаем из базы все предыдущие сообщения
     # в виде json-строки
     messages = json.loads(json_string_messages)  # Преобразуем json-строку в нужный нам формат списка словарей
-    if not messages:  # Если попытались продолжить, но запроса еще не было
+    if not messages:  # Если попытались посмотреть историю, но запроса еще не было
         bot.send_message(
             chat_id=user_id,
             text="Ты ещё не создавал историй, сделай это кнопкой ниже.",
@@ -454,15 +556,18 @@ def send_all_story(message: Message):
         )
         return
 
+    all_story = ""
+    for message in messages:
+        if message["role"] == "assistant":
+            all_story += message["content"]
+
     bot.send_message(
         chat_id=user_id,
-        text=messages,
+        text=all_story,
         reply_markup=create_keyboard(
             [
                 "Сгенерировать историю",
-                "Продолжить историю",
                 "Изменить жанр/героя/сеттинг",
-                "Добавить условие"
             ]
         )
     )
