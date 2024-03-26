@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 LOGS_PATH = "log_file.txt"  # Путь к файлу логов
 
-MAX_MODEL_TOKENS = 50  # Максимальный размер ответа
+MAX_MODEL_TOKENS = 200  # Максимальный размер ответа
 
 DB_NAME = "db.sqlite"  # Название базы данных
 
